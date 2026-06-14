@@ -335,7 +335,7 @@ func commandLineForConfig(cfg trace.RunConfig) string {
 		if cfg.Target.SSHUser != "" {
 			args = append(args, "--ssh-user", cfg.Target.SSHUser)
 		}
-		if cfg.Target.SSHPort != 0 && cfg.Target.SSHPort != 22 {
+		if cfg.Target.SSHPort != 0 {
 			args = append(args, "--ssh-port", strconv.Itoa(cfg.Target.SSHPort))
 		}
 		if cfg.Target.SSHKey != "" {
@@ -346,18 +346,10 @@ func commandLineForConfig(cfg trace.RunConfig) string {
 	args = append(args, "--max-events", strconv.Itoa(cfg.MaxEvents))
 	args = append(args, "--trace-limit", cfg.TraceLimit)
 	args = append(args, "--trace-limit-burst", strconv.Itoa(cfg.TraceLimitBurst))
-	if cfg.AllowBroadMatch {
-		args = append(args, "--allow-broad-match")
-	}
-	if cfg.Debug {
-		args = append(args, "--debug")
-	}
-	if cfg.JSON {
-		args = append(args, "--json")
-	}
-	if cfg.Target.Sudo {
-		args = append(args, "--sudo")
-	}
+	args = append(args, "--allow-broad-match="+strconv.FormatBool(cfg.AllowBroadMatch))
+	args = append(args, "--debug="+strconv.FormatBool(cfg.Debug))
+	args = append(args, "--json="+strconv.FormatBool(cfg.JSON))
+	args = append(args, "--sudo="+strconv.FormatBool(cfg.Target.Sudo))
 
 	quoted := make([]string, 0, len(args))
 	for _, arg := range args {

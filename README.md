@@ -28,7 +28,7 @@ sudo ./nftracepath run
 交互式运行会逐项提示协议、地址、可选端口、入接口、模式、后端 `auto|nft|iptables` 和目标信息。输入完成后会打印一行等价的完整命令，方便复制复用，例如：
 
 ```sh
-./nftracepath run --proto tcp --src 192.0.2.10 --sport 12345 --dst 198.51.100.20 --dport 443 --mode listen --backend nft --target local --timeout 30s --max-events 200 --trace-limit 10/second --trace-limit-burst 20
+./nftracepath run --proto tcp --src 192.0.2.10 --sport 12345 --dst 198.51.100.20 --dport 443 --mode listen --backend nft --target local --timeout 30s --max-events 200 --trace-limit 10/second --trace-limit-burst 20 --allow-broad-match=false --debug=false --json=false --sudo=false
 ```
 
 Non-interactive:
