@@ -88,7 +88,7 @@ func (iptablesBackend) Run(ctx context.Context, exec Executor, cfg RunConfig, ru
 }
 
 func iptablesMonitorScript() string {
-	return "if command -v journalctl >/dev/null 2>&1; then journalctl -kf -o cat; else dmesg -w; fi"
+	return "if command -v journalctl >/dev/null 2>&1; then journalctl -k -f -n 0 -o cat; elif dmesg --help 2>&1 | grep -q -- ' -W'; then dmesg -W; else dmesg -w; fi"
 }
 
 func iptablesSetupScript(cfg RunConfig, runID string) string {

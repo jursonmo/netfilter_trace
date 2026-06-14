@@ -88,7 +88,7 @@ If the SSH user is not root but has passwordless sudo:
 `--backend auto` probes both stacks. It chooses iptables when iptables-legacy has real rules, chooses nftables when the nft ruleset has real rules, then falls back to whichever supported stack exists. This avoids selecting an empty nftables ruleset on devices whose active firewall is iptables-legacy.
 
 - nftables: uses a temporary `inet nftracepath_<runid>` table and `nft monitor trace`.
-- iptables: uses temporary raw `TRACE` rules, auxiliary `LOG` probes, `iptables-save`, and `journalctl -kf` or `dmesg -w`.
+- iptables: uses temporary raw `TRACE` rules, auxiliary `LOG` probes, `iptables-save`, and `journalctl -k -f -n 0` or `dmesg -W`.
 
 All temporary rules include an `nftracepath:<runid>:...` comment and cleanup runs on normal timeout, error, or Ctrl-C.
 

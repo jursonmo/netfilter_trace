@@ -93,6 +93,21 @@ func TestIPTablesSetupAndCleanupScripts(t *testing.T) {
 	}
 }
 
+func TestIPTablesMonitorScriptOnlyFollowsNewKernelLogs(t *testing.T) {
+	script := iptablesMonitorScript()
+	for _, want := range []string{
+		"journalctl -k -f -n 0 -o cat",
+		"dmesg -W",
+	} {
+		if !contains(script, want) {
+			t.Fatalf("iptables monitor script does not contain %q:\n%s", want, script)
+		}
+	}
+	if contains(script, "journalctl -kf -o cat") {
+		t.Fatalf("iptables monitor script can replay journal tail:\n%s", script)
+	}
+}
+
 func TestIPTablesSetupAndCleanupIncludeOutputTraceWithoutInIface(t *testing.T) {
 	flow, err := NewFlow("udp", "192.0.2.10", 53000, "198.51.100.53", 53, "")
 	if err != nil {
