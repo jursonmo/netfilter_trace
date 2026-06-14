@@ -98,11 +98,15 @@ func iptablesSetupScript(cfg RunConfig, runID string) string {
 	limitArgs := iptablesLimitArgs(cfg)
 	cmds := []string{
 		iptablesInsert("raw", "PREROUTING", preArgs, iptablesTail(limitArgs, comment(runID, "trace-prerouting"), "TRACE", "")),
-		iptablesInsert("raw", "OUTPUT", outArgs, iptablesTail(limitArgs, comment(runID, "trace-output"), "TRACE", "")),
+	}
+	if shouldInstallOutputTrace(f) {
+		cmds = append(cmds, iptablesInsert("raw", "OUTPUT", outArgs, iptablesTail(limitArgs, comment(runID, "trace-output"), "TRACE", "")))
+	}
+	cmds = append(cmds,
 		iptablesAppend("", "INPUT", preArgs, iptablesTail(limitArgs, comment(runID, "final-input"), "LOG", logPrefix(runID, "IN"))),
 		iptablesAppend("", "FORWARD", preArgs, iptablesTail(limitArgs, comment(runID, "final-forward"), "LOG", logPrefix(runID, "FWD"))),
 		iptablesAppend("mangle", "POSTROUTING", outArgs, iptablesTail(limitArgs, comment(runID, "final-postrouting"), "LOG", logPrefix(runID, "POST"))),
-	}
+	)
 	return strings.Join(cmds, "\n")
 }
 
@@ -115,10 +119,16 @@ func iptablesCleanupScript(cfg RunConfig, runID string) string {
 		iptablesDelete("mangle", "POSTROUTING", outArgs, iptablesTail(limitArgs, comment(runID, "final-postrouting"), "LOG", logPrefix(runID, "POST"))),
 		iptablesDelete("", "FORWARD", preArgs, iptablesTail(limitArgs, comment(runID, "final-forward"), "LOG", logPrefix(runID, "FWD"))),
 		iptablesDelete("", "INPUT", preArgs, iptablesTail(limitArgs, comment(runID, "final-input"), "LOG", logPrefix(runID, "IN"))),
-		iptablesDelete("raw", "OUTPUT", outArgs, iptablesTail(limitArgs, comment(runID, "trace-output"), "TRACE", "")),
-		iptablesDelete("raw", "PREROUTING", preArgs, iptablesTail(limitArgs, comment(runID, "trace-prerouting"), "TRACE", "")),
 	}
+	if shouldInstallOutputTrace(f) {
+		cmds = append(cmds, iptablesDelete("raw", "OUTPUT", outArgs, iptablesTail(limitArgs, comment(runID, "trace-output"), "TRACE", "")))
+	}
+	cmds = append(cmds, iptablesDelete("raw", "PREROUTING", preArgs, iptablesTail(limitArgs, comment(runID, "trace-prerouting"), "TRACE", "")))
 	return strings.Join(cmds, "\n")
+}
+
+func shouldInstallOutputTrace(f Flow) bool {
+	return f.InIface == ""
 }
 
 func iptablesLimitArgs(cfg RunConfig) []string {

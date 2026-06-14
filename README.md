@@ -92,6 +92,8 @@ If the SSH user is not root but has passwordless sudo:
 
 All temporary rules include an `nftracepath:<runid>:...` comment and cleanup runs on normal timeout, error, or Ctrl-C.
 
+When `--in-iface` is set, the tool only installs the initial TRACE hook on PREROUTING. It skips the OUTPUT TRACE hook because locally generated packets cannot have that ingress interface, while final INPUT/FORWARD/POSTROUTING probes are still installed to identify the outcome.
+
 ## Safety controls
 
 The tool installs kernel TRACE/LOG rules, so broad or high-rate matches can generate a lot of output. These protections are enabled by default:

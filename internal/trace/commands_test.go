@@ -24,9 +24,30 @@ func TestNFTSetupAndCleanupScripts(t *testing.T) {
 			t.Fatalf("nft setup script does not contain %q:\n%s", want, setup)
 		}
 	}
+	if contains(setup, "trace_output") {
+		t.Fatalf("nft setup script should not install output trace when in-iface is set:\n%s", setup)
+	}
 	cleanup := nftCleanupScript("nftracepath_abcd1234")
 	if !contains(cleanup, "nft delete table inet nftracepath_abcd1234") || !contains(cleanup, "|| true") {
 		t.Fatalf("unexpected nft cleanup script: %s", cleanup)
+	}
+}
+
+func TestNFTSetupIncludesOutputTraceWithoutInIface(t *testing.T) {
+	flow, err := NewFlow("tcp", "192.0.2.10", 12345, "198.51.100.20", 443, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg := testRunConfig(flow)
+	setup := nftSetupScript(cfg, "nftracepath_abcd1234", "abcd1234")
+	for _, want := range []string{
+		"add chain inet nftracepath_abcd1234 trace_output",
+		"add rule inet nftracepath_abcd1234 trace_output",
+		`comment "nftracepath:abcd1234:trace-output"`,
+	} {
+		if !contains(setup, want) {
+			t.Fatalf("nft setup script does not contain %q:\n%s", want, setup)
+		}
 	}
 }
 
@@ -49,11 +70,49 @@ func TestIPTablesSetupAndCleanupScripts(t *testing.T) {
 			t.Fatalf("iptables setup script does not contain %q:\n%s", want, setup)
 		}
 	}
+	for _, unwanted := range []string{
+		"iptables -t raw -I OUTPUT 1",
+		"--comment nftracepath:abcd1234:trace-output",
+	} {
+		if contains(setup, unwanted) {
+			t.Fatalf("iptables setup script should not contain %q when in-iface is set:\n%s", unwanted, setup)
+		}
+	}
 	cleanup := iptablesCleanupScript(cfg, "abcd1234")
 	for _, want := range []string{
 		"iptables -t raw -D PREROUTING",
 		"--comment nftracepath:abcd1234:trace-prerouting",
 		"|| true",
+	} {
+		if !contains(cleanup, want) {
+			t.Fatalf("iptables cleanup script does not contain %q:\n%s", want, cleanup)
+		}
+	}
+	if contains(cleanup, "iptables -t raw -D OUTPUT") {
+		t.Fatalf("iptables cleanup script should not delete output trace when in-iface is set:\n%s", cleanup)
+	}
+}
+
+func TestIPTablesSetupAndCleanupIncludeOutputTraceWithoutInIface(t *testing.T) {
+	flow, err := NewFlow("udp", "192.0.2.10", 53000, "198.51.100.53", 53, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg := testRunConfig(flow)
+	setup := iptablesSetupScript(cfg, "abcd1234")
+	for _, want := range []string{
+		"iptables -t raw -I OUTPUT 1",
+		"--comment nftracepath:abcd1234:trace-output",
+		"-j TRACE",
+	} {
+		if !contains(setup, want) {
+			t.Fatalf("iptables setup script does not contain %q:\n%s", want, setup)
+		}
+	}
+	cleanup := iptablesCleanupScript(cfg, "abcd1234")
+	for _, want := range []string{
+		"iptables -t raw -D OUTPUT",
+		"--comment nftracepath:abcd1234:trace-output",
 	} {
 		if !contains(cleanup, want) {
 			t.Fatalf("iptables cleanup script does not contain %q:\n%s", want, cleanup)

@@ -101,16 +101,24 @@ func nftSetupScript(cfg RunConfig, table, runID string) string {
 	cmds := []string{
 		"add table inet " + table,
 		"add chain inet " + table + " trace_prerouting { type filter hook prerouting priority -300; policy accept; }",
-		"add chain inet " + table + " trace_output { type filter hook output priority -300; policy accept; }",
-		"add chain inet " + table + " final_input { type filter hook input priority 300; policy accept; }",
-		"add chain inet " + table + " final_forward { type filter hook forward priority 300; policy accept; }",
-		"add chain inet " + table + " final_postrouting { type filter hook postrouting priority 300; policy accept; }",
-		"add rule inet " + table + " trace_prerouting " + preMatch + " " + limit + " meta nftrace set 1 counter comment " + strconvQuote(comment(runID, "trace-prerouting")),
-		"add rule inet " + table + " trace_output " + outMatch + " " + limit + " meta nftrace set 1 counter comment " + strconvQuote(comment(runID, "trace-output")),
-		"add rule inet " + table + " final_input " + preMatch + " " + limit + " counter comment " + strconvQuote(comment(runID, "final-input")),
-		"add rule inet " + table + " final_forward " + preMatch + " " + limit + " counter comment " + strconvQuote(comment(runID, "final-forward")),
-		"add rule inet " + table + " final_postrouting " + outMatch + " " + limit + " counter comment " + strconvQuote(comment(runID, "final-postrouting")),
 	}
+	if shouldInstallOutputTrace(f) {
+		cmds = append(cmds, "add chain inet "+table+" trace_output { type filter hook output priority -300; policy accept; }")
+	}
+	cmds = append(cmds,
+		"add chain inet "+table+" final_input { type filter hook input priority 300; policy accept; }",
+		"add chain inet "+table+" final_forward { type filter hook forward priority 300; policy accept; }",
+		"add chain inet "+table+" final_postrouting { type filter hook postrouting priority 300; policy accept; }",
+		"add rule inet "+table+" trace_prerouting "+preMatch+" "+limit+" meta nftrace set 1 counter comment "+strconvQuote(comment(runID, "trace-prerouting")),
+	)
+	if shouldInstallOutputTrace(f) {
+		cmds = append(cmds, "add rule inet "+table+" trace_output "+outMatch+" "+limit+" meta nftrace set 1 counter comment "+strconvQuote(comment(runID, "trace-output")))
+	}
+	cmds = append(cmds,
+		"add rule inet "+table+" final_input "+preMatch+" "+limit+" counter comment "+strconvQuote(comment(runID, "final-input")),
+		"add rule inet "+table+" final_forward "+preMatch+" "+limit+" counter comment "+strconvQuote(comment(runID, "final-forward")),
+		"add rule inet "+table+" final_postrouting "+outMatch+" "+limit+" counter comment "+strconvQuote(comment(runID, "final-postrouting")),
+	)
 	return nftBatchScript(cmds)
 }
 
