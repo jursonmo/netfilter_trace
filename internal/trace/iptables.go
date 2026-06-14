@@ -30,7 +30,11 @@ func (iptablesBackend) Run(ctx context.Context, exec Executor, cfg RunConfig, ru
 		return result, fmt.Errorf("start kernel log monitor: %w", err)
 	}
 
-	if _, err := exec.Shell(ctx, privileged(iptablesSetupScript(cfg, runID), cfg.Target.Sudo)); err != nil {
+	setupScript := iptablesSetupScript(cfg, runID)
+	if cfg.Debug {
+		result.DebugRules = debugLines(setupScript)
+	}
+	if _, err := exec.Shell(ctx, privileged(setupScript, cfg.Target.Sudo)); err != nil {
 		cancel()
 		return result, fmt.Errorf("install iptables trace rules: %w", err)
 	}

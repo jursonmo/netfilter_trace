@@ -71,6 +71,7 @@ type RunConfig struct {
 	TraceLimit      string        `json:"trace_limit"`
 	TraceLimitBurst int           `json:"trace_limit_burst"`
 	AllowBroadMatch bool          `json:"allow_broad_match"`
+	Debug           bool          `json:"debug,omitempty"`
 	JSON            bool          `json:"-"`
 }
 
@@ -121,6 +122,7 @@ type Result struct {
 	OutIface     string        `json:"out_iface,omitempty"`
 	Events       []Event       `json:"events"`
 	Warnings     []string      `json:"warnings,omitempty"`
+	DebugRules   []string      `json:"debug_rules,omitempty"`
 	CleanupError string        `json:"cleanup_error,omitempty"`
 }
 

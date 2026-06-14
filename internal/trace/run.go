@@ -190,3 +190,15 @@ func reachedMaxEvents(result *Result, cfg RunConfig) bool {
 	result.Warnings = append(result.Warnings, fmt.Sprintf("stopped after max-events=%d to limit kernel TRACE/LOG output", cfg.MaxEvents))
 	return true
 }
+
+func debugLines(script string) []string {
+	lines := []string{}
+	for _, raw := range strings.Split(script, "\n") {
+		line := strings.TrimSpace(raw)
+		if line == "" {
+			continue
+		}
+		lines = append(lines, line)
+	}
+	return lines
+}

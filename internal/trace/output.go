@@ -35,6 +35,12 @@ func WriteHuman(w io.Writer, result Result) error {
 	if result.CleanupError != "" {
 		fmt.Fprintf(w, "\nCleanup error: %s\n", result.CleanupError)
 	}
+	if len(result.DebugRules) > 0 {
+		fmt.Fprintln(w, "\nDebug rules:")
+		for _, line := range result.DebugRules {
+			fmt.Fprintf(w, "  %s\n", line)
+		}
+	}
 	if len(result.Events) == 0 {
 		fmt.Fprintln(w, "\nNo matching netfilter trace events were observed before timeout.")
 		return nil

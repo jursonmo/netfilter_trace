@@ -94,8 +94,11 @@ The tool installs kernel TRACE/LOG rules, so broad or high-rate matches can gene
 - `--trace-limit 10/second`: add kernel-side rate limiting to temporary TRACE/LOG rules.
 - `--trace-limit-burst 20`: allow a short initial burst before rate limiting.
 - `--allow-broad-match`: required when both `--sport` and `--dport` are omitted.
+- `--debug`: include the temporary TRACE/LOG rules in the output for troubleshooting.
 
 For iptables, the temporary rules include `-m limit --limit ... --limit-burst ...`. For nftables, they include `limit rate ... burst ... packets`.
+
+In human output, `--debug` adds a `Debug rules:` section. In JSON output, it adds `debug_rules`.
 
 ## Remote testing
 

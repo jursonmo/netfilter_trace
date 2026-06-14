@@ -32,7 +32,11 @@ func (nftBackend) Run(ctx context.Context, exec Executor, cfg RunConfig, runID s
 		return result, fmt.Errorf("start nft monitor trace: %w", err)
 	}
 
-	if _, err := exec.Shell(ctx, privileged(nftSetupScript(cfg, table, runID), cfg.Target.Sudo)); err != nil {
+	setupScript := nftSetupScript(cfg, table, runID)
+	if cfg.Debug {
+		result.DebugRules = debugLines(setupScript)
+	}
+	if _, err := exec.Shell(ctx, privileged(setupScript, cfg.Target.Sudo)); err != nil {
 		cancel()
 		return result, fmt.Errorf("install nft trace rules: %w", err)
 	}

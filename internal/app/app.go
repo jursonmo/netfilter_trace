@@ -35,6 +35,7 @@ Run flags:
   --trace-limit 10/second   kernel TRACE/LOG rate limit
   --trace-limit-burst 20    kernel TRACE/LOG rate limit burst
   --allow-broad-match       allow rules without source and destination ports
+  --debug                   print temporary nftables/iptables TRACE/LOG rules
   --backend auto|nft|iptables
   --json                    print JSON output
   --target local|ssh
@@ -84,6 +85,7 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) error {
 		maxEvents       int
 		limitBurst      int
 		jsonOut         bool
+		debug           bool
 		sudo            bool
 		allowBroadMatch bool
 	)
@@ -102,6 +104,7 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) error {
 	fs.StringVar(&traceLimit, "trace-limit", trace.DefaultTraceLimit, "kernel TRACE/LOG rate limit")
 	fs.IntVar(&limitBurst, "trace-limit-burst", trace.DefaultTraceLimitBurst, "kernel TRACE/LOG rate limit burst")
 	fs.BoolVar(&allowBroadMatch, "allow-broad-match", false, "allow rules without source and destination ports")
+	fs.BoolVar(&debug, "debug", false, "print temporary nftables/iptables TRACE/LOG rules")
 	fs.StringVar(&backend, "backend", "auto", "auto, nft, or iptables")
 	fs.BoolVar(&jsonOut, "json", false, "print JSON")
 	fs.StringVar(&target, "target", "", "local or ssh")
@@ -134,6 +137,7 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) error {
 		TraceLimit:      traceLimit,
 		TraceLimitBurst: limitBurst,
 		AllowBroadMatch: allowBroadMatch,
+		Debug:           debug,
 		Target: trace.TargetConfig{
 			Kind:    trace.TargetKind(target),
 			SSHHost: sshHost,
