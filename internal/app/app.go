@@ -105,7 +105,7 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) error {
 	fs.IntVar(&limitBurst, "trace-limit-burst", trace.DefaultTraceLimitBurst, "kernel TRACE/LOG rate limit burst")
 	fs.BoolVar(&allowBroadMatch, "allow-broad-match", false, "allow rules without source and destination ports")
 	fs.BoolVar(&debug, "debug", false, "print temporary nftables/iptables TRACE/LOG rules")
-	fs.StringVar(&backend, "backend", "auto", "auto, nft, or iptables")
+	fs.StringVar(&backend, "backend", "", "auto, nft, or iptables")
 	fs.BoolVar(&jsonOut, "json", false, "print JSON")
 	fs.StringVar(&target, "target", "", "local or ssh")
 	fs.StringVar(&sshHost, "ssh-host", "", "SSH host")
@@ -119,8 +119,12 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) error {
 
 	reader := bufio.NewReader(stdin)
 	promptOptional := !(proto != "" && src != "" && dst != "" && mode != "" && (target != "" || sshHost != ""))
-	if err := fillInteractive(reader, stdout, promptOptional, &proto, &src, &sport, &dst, &dport, &inIface, &mode, &target, &sshHost, &sshUser, &sshPort, &sshKey); err != nil {
+	prompted, err := fillInteractive(reader, stdout, promptOptional, &proto, &src, &sport, &dst, &dport, &inIface, &mode, &backend, &target, &sshHost, &sshUser, &sshPort, &sshKey)
+	if err != nil {
 		return err
+	}
+	if backend == "" {
+		backend = string(trace.BackendAuto)
 	}
 
 	flow, err := trace.NewFlow(proto, src, sport, dst, dport, inIface)
@@ -150,6 +154,9 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) error {
 	if err := cfg.Validate(); err != nil {
 		return err
 	}
+	if prompted && !cfg.JSON {
+		fmt.Fprintf(stdout, "\n生成的命令行:\n  %s\n\n", commandLineForConfig(cfg))
+	}
 
 	exec, err := trace.NewExecutor(cfg.Target)
 	if err != nil {
@@ -167,87 +174,107 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) error {
 	return trace.WriteHuman(stdout, result)
 }
 
-func fillInteractive(reader *bufio.Reader, out io.Writer, promptOptional bool, proto, src *string, sport *int, dst *string, dport *int, inIface, mode, target, sshHost, sshUser *string, sshPort *int, sshKey *string) error {
+func fillInteractive(reader *bufio.Reader, out io.Writer, promptOptional bool, proto, src *string, sport *int, dst *string, dport *int, inIface, mode, backend, target, sshHost, sshUser *string, sshPort *int, sshKey *string) (bool, error) {
 	var err error
+	prompted := false
 	if *proto == "" {
+		prompted = true
 		*proto, err = askString(reader, out, "协议 tcp|udp", "tcp")
 		if err != nil {
-			return err
+			return prompted, err
 		}
 	}
 	if *src == "" {
+		prompted = true
 		*src, err = askString(reader, out, "源 IPv4", "")
 		if err != nil {
-			return err
+			return prompted, err
 		}
 	}
 	if *sport == 0 && promptOptional {
+		prompted = true
 		*sport, err = askInt(reader, out, "源端口(可空)", 0)
 		if err != nil {
-			return err
+			return prompted, err
 		}
 	}
 	if *dst == "" {
+		prompted = true
 		*dst, err = askString(reader, out, "目的 IPv4", "")
 		if err != nil {
-			return err
+			return prompted, err
 		}
 	}
 	if *dport == 0 && promptOptional {
+		prompted = true
 		*dport, err = askInt(reader, out, "目的端口(可空)", 0)
 		if err != nil {
-			return err
+			return prompted, err
 		}
 	}
 	if *inIface == "" && promptOptional {
+		prompted = true
 		*inIface, err = askString(reader, out, "入网卡(可空)", "")
 		if err != nil {
-			return err
+			return prompted, err
 		}
 	}
 	if *mode == "" {
+		prompted = true
 		*mode, err = askString(reader, out, "模式 listen|active", "listen")
 		if err != nil {
-			return err
+			return prompted, err
+		}
+	}
+	if *backend == "" && promptOptional {
+		prompted = true
+		*backend, err = askString(reader, out, "后端 auto|nft|iptables", "auto")
+		if err != nil {
+			return prompted, err
 		}
 	}
 	if *target == "" {
 		if *sshHost != "" {
 			*target = string(trace.TargetSSH)
 		} else {
+			prompted = true
 			*target, err = askString(reader, out, "目标 local|ssh", "local")
 			if err != nil {
-				return err
+				return prompted, err
 			}
 		}
 	}
 	if trace.TargetKind(*target) == trace.TargetSSH {
 		if *sshHost == "" {
+			prompted = true
 			*sshHost, err = askString(reader, out, "SSH host", "")
 			if err != nil {
-				return err
+				return prompted, err
 			}
 		}
 		if *sshUser == "" && promptOptional {
+			prompted = true
 			*sshUser, err = askString(reader, out, "SSH user(可空)", "")
 			if err != nil {
-				return err
+				return prompted, err
 			}
 		}
 		if *sshPort == 0 {
+			prompted = true
 			*sshPort, err = askInt(reader, out, "SSH port", 22)
 			if err != nil {
-				return err
+				return prompted, err
 			}
 		}
 		if *sshKey == "" && promptOptional {
+			prompted = true
 			*sshKey, err = askString(reader, out, "SSH key(可空)", "")
 			if err != nil {
-				return err
+				return prompted, err
 			}
 		}
 	}
-	return nil
+	return prompted, nil
 }
 
 func askString(reader *bufio.Reader, out io.Writer, prompt, def string) (string, error) {
@@ -284,4 +311,69 @@ func askInt(reader *bufio.Reader, out io.Writer, prompt string, def int) (int, e
 		return 0, fmt.Errorf("%s must be an integer: %w", prompt, err)
 	}
 	return parsed, nil
+}
+
+func commandLineForConfig(cfg trace.RunConfig) string {
+	args := []string{"./nftracepath", "run"}
+	args = append(args, "--proto", string(cfg.Flow.Proto))
+	args = append(args, "--src", cfg.Flow.Src4())
+	if cfg.Flow.SrcPort > 0 {
+		args = append(args, "--sport", strconv.Itoa(cfg.Flow.SrcPort))
+	}
+	args = append(args, "--dst", cfg.Flow.Dst4())
+	if cfg.Flow.DstPort > 0 {
+		args = append(args, "--dport", strconv.Itoa(cfg.Flow.DstPort))
+	}
+	if cfg.Flow.InIface != "" {
+		args = append(args, "--in-iface", cfg.Flow.InIface)
+	}
+	args = append(args, "--mode", string(cfg.Mode))
+	args = append(args, "--backend", string(cfg.Backend))
+	args = append(args, "--target", string(cfg.Target.Kind))
+	if cfg.Target.Kind == trace.TargetSSH {
+		args = append(args, "--ssh-host", cfg.Target.SSHHost)
+		if cfg.Target.SSHUser != "" {
+			args = append(args, "--ssh-user", cfg.Target.SSHUser)
+		}
+		if cfg.Target.SSHPort != 0 && cfg.Target.SSHPort != 22 {
+			args = append(args, "--ssh-port", strconv.Itoa(cfg.Target.SSHPort))
+		}
+		if cfg.Target.SSHKey != "" {
+			args = append(args, "--ssh-key", cfg.Target.SSHKey)
+		}
+	}
+	args = append(args, "--timeout", cfg.Timeout.String())
+	args = append(args, "--max-events", strconv.Itoa(cfg.MaxEvents))
+	args = append(args, "--trace-limit", cfg.TraceLimit)
+	args = append(args, "--trace-limit-burst", strconv.Itoa(cfg.TraceLimitBurst))
+	if cfg.AllowBroadMatch {
+		args = append(args, "--allow-broad-match")
+	}
+	if cfg.Debug {
+		args = append(args, "--debug")
+	}
+	if cfg.JSON {
+		args = append(args, "--json")
+	}
+	if cfg.Target.Sudo {
+		args = append(args, "--sudo")
+	}
+
+	quoted := make([]string, 0, len(args))
+	for _, arg := range args {
+		quoted = append(quoted, shellQuote(arg))
+	}
+	return strings.Join(quoted, " ")
+}
+
+func shellQuote(s string) string {
+	if s == "" {
+		return "''"
+	}
+	if strings.IndexFunc(s, func(r rune) bool {
+		return !(r == '-' || r == '_' || r == '.' || r == '/' || r == ':' || r == '=' || r == '+' || r == ',' || r == '%' || r == '@' || r >= '0' && r <= '9' || r >= 'A' && r <= 'Z' || r >= 'a' && r <= 'z')
+	}) == -1 {
+		return s
+	}
+	return "'" + strings.ReplaceAll(s, "'", "'\\''") + "'"
 }
