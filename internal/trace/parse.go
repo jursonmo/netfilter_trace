@@ -136,7 +136,11 @@ func parseIPTablesLogLine(line string, rules ruleMap) (Event, bool) {
 			},
 			Raw: line,
 		}
-		if n, err := strconv.Atoi(m[4]); err == nil {
+		if ev.Kind == "rule" {
+			n, err := strconv.Atoi(m[4])
+			if err != nil {
+				return Event{}, false
+			}
 			ev.RuleRef.Number = n
 			ev.RuleRef.Rule = rules[iptablesRuleKey(ev.RuleRef.Table, ev.RuleRef.Chain, n)]
 		}
@@ -156,6 +160,43 @@ func parseIPTablesLogLine(line string, rules ruleMap) (Event, bool) {
 		return ev, true
 	}
 	return Event{}, false
+}
+
+func annotateRuleOrigin(ev *Event, runID string) {
+	if isTemporaryEvent(*ev, runID) {
+		ev.RuleRef.Origin = "temporary"
+		return
+	}
+	if ev.Kind == "policy" {
+		ev.RuleRef.Origin = "policy"
+		return
+	}
+	if isSystemEvent(*ev) {
+		ev.RuleRef.Origin = "system"
+	}
+}
+
+func isTemporaryEvent(ev Event, runID string) bool {
+	if runID == "" {
+		return false
+	}
+	runComment := "nftracepath:" + runID
+	runPrefix := "NFTP:" + runID
+	return strings.Contains(ev.Raw, runComment) ||
+		strings.Contains(ev.Raw, runPrefix) ||
+		strings.Contains(ev.RuleRef.Rule, runComment) ||
+		strings.Contains(ev.RuleRef.Table, "nftracepath_"+runID)
+}
+
+func isSystemEvent(ev Event) bool {
+	if ev.RuleRef.Rule != "" {
+		return true
+	}
+	switch ev.Kind {
+	case "rule", "verdict":
+		return ev.RuleRef.Table != "" || ev.RuleRef.Chain != ""
+	}
+	return false
 }
 
 func flowMatchesLog(line string, f Flow) bool {

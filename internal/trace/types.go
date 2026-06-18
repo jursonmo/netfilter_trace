@@ -81,6 +81,7 @@ type RuleRef struct {
 	Chain  string `json:"chain,omitempty"`
 	Handle string `json:"handle,omitempty"`
 	Number int    `json:"number,omitempty"`
+	Origin string `json:"origin,omitempty"`
 	Rule   string `json:"rule,omitempty"`
 }
 

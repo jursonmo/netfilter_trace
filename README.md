@@ -85,14 +85,16 @@ If the SSH user is not root but has passwordless sudo:
 
 ## Backends
 
-`--backend auto` probes both stacks. It chooses iptables when iptables-legacy has real rules, chooses nftables when the nft ruleset has real rules, then falls back to whichever supported stack exists. This avoids selecting an empty nftables ruleset on devices whose active firewall is iptables-legacy.
+`--backend auto` probes both stacks. It chooses iptables only when the `iptables-legacy` ruleset has real rules, chooses nftables when the nft ruleset has real rules, then falls back to nftables when legacy is empty but nft is available. This avoids treating `iptables-nft` compatibility rules as legacy xtables rules.
 
 - nftables: uses a temporary `inet nftracepath_<runid>` table and `nft monitor trace`.
-- iptables: uses temporary raw `TRACE` rules, auxiliary `LOG` probes, `iptables-save`, and `journalctl -k -f -n 0` or `dmesg -W`.
+- iptables: uses `iptables-legacy` temporary raw `TRACE` rules, auxiliary `LOG` probes, `iptables-legacy-save`, and `journalctl -k -f -n 0` or `dmesg -W`.
 
 All temporary rules include an `nftracepath:<runid>:...` comment and cleanup runs on normal timeout, error, or Ctrl-C.
 
 When `--in-iface` is set, the tool only installs the initial TRACE hook on PREROUTING. It skips the OUTPUT TRACE hook because locally generated packets cannot have that ingress interface, while final INPUT/FORWARD/POSTROUTING probes are still installed to identify the outcome.
+
+If a rule added with `iptables` is visible in `iptables -L` but not in `iptables-legacy -L`, it is an `iptables-nft` rule. Use `--backend nft` for that case, because its rule hits are visible through `nft monitor trace`, not the legacy dmesg TRACE path.
 
 ## Safety controls
 
@@ -107,6 +109,12 @@ The tool installs kernel TRACE/LOG rules, so broad or high-rate matches can gene
 For iptables, the temporary rules include `-m limit --limit ... --limit-burst ...`. For nftables, they include `limit rate ... burst ... packets`.
 
 In human output, `--debug` adds a `Debug rules:` section. In JSON output, it adds `debug_rules`.
+
+Trace events include a rule `origin`:
+
+- `temporary`: a TRACE/LOG/probe rule installed by the current `nftracepath` run.
+- `system`: an existing netfilter rule already present on the target.
+- `policy`: a chain policy event, not a numbered rule hit.
 
 ## Remote testing
 

@@ -14,6 +14,27 @@ type backend interface {
 	Run(context.Context, Executor, RunConfig, string) (Result, error)
 }
 
+const terminalDrainDuration = 250 * time.Millisecond
+
+type terminalDrain struct {
+	timer *time.Timer
+	C     <-chan time.Time
+}
+
+func (d *terminalDrain) Arm() {
+	if d.timer != nil {
+		return
+	}
+	d.timer = time.NewTimer(terminalDrainDuration)
+	d.C = d.timer.C
+}
+
+func (d *terminalDrain) Stop() {
+	if d.timer != nil {
+		d.timer.Stop()
+	}
+}
+
 func Run(ctx context.Context, exec Executor, cfg RunConfig) (Result, error) {
 	cfg = normalizeConfig(cfg)
 	if err := cfg.Validate(); err != nil {
@@ -96,14 +117,11 @@ func selectBackend(ctx context.Context, exec Executor, cfg RunConfig) (backend, 
 	}
 
 	probe := probeBackends(ctx, exec, cfg.Target.Sudo)
-	if probe.iptablesAvailable && probe.iptablesLegacy && probe.iptablesRules > 0 {
+	if probe.iptablesAvailable && probe.iptablesRules > 0 {
 		return iptablesBackend{}, nil
 	}
 	if probe.nftAvailable && probe.nftRules > 0 {
 		return nftBackend{}, nil
-	}
-	if probe.iptablesAvailable && probe.iptablesRules > 0 {
-		return iptablesBackend{}, nil
 	}
 	if probe.nftAvailable {
 		return nftBackend{}, nil
@@ -118,7 +136,6 @@ type backendProbe struct {
 	nftAvailable      bool
 	nftRules          int
 	iptablesAvailable bool
-	iptablesLegacy    bool
 	iptablesRules     int
 }
 
@@ -128,14 +145,9 @@ func probeBackends(ctx context.Context, exec Executor, sudo bool) backendProbe {
 		probe.nftAvailable = true
 		probe.nftRules = len(parseNFTRuleset(out))
 	}
-	if out, err := exec.Shell(ctx, privileged("command -v iptables >/dev/null 2>&1 && command -v iptables-save >/dev/null 2>&1 && iptables --version", sudo)); err == nil {
+	if tools, err := detectIPTablesLegacyTools(ctx, exec, sudo); err == nil {
 		probe.iptablesAvailable = true
-		probe.iptablesLegacy = strings.Contains(strings.ToLower(out), "legacy")
-	}
-	if probe.iptablesAvailable {
-		if out, err := exec.Shell(ctx, privileged("iptables-save", sudo)); err == nil {
-			probe.iptablesRules = len(parseIPTablesSave(out))
-		}
+		probe.iptablesRules = tools.Rules
 	}
 	return probe
 }

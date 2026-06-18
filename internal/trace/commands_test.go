@@ -135,6 +135,33 @@ func TestIPTablesSetupAndCleanupIncludeOutputTraceWithoutInIface(t *testing.T) {
 	}
 }
 
+func TestIPTablesSetupAndCleanupCanUseLegacyCommand(t *testing.T) {
+	flow, err := NewFlow("tcp", "192.0.2.10", 0, "198.51.100.20", 443, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg := testRunConfig(flow)
+	setup := iptablesSetupScriptWithCommand(cfg, "abcd1234", "iptables-legacy")
+	for _, want := range []string{
+		"iptables-legacy -t raw -I PREROUTING 1",
+		"iptables-legacy -t raw -I OUTPUT 1",
+		"iptables-legacy -t mangle -A POSTROUTING",
+	} {
+		if !contains(setup, want) {
+			t.Fatalf("iptables legacy setup script does not contain %q:\n%s", want, setup)
+		}
+	}
+	cleanup := iptablesCleanupScriptWithCommand(cfg, "abcd1234", "iptables-legacy")
+	for _, want := range []string{
+		"iptables-legacy -t raw -D OUTPUT",
+		"iptables-legacy -t raw -D PREROUTING",
+	} {
+		if !contains(cleanup, want) {
+			t.Fatalf("iptables legacy cleanup script does not contain %q:\n%s", want, cleanup)
+		}
+	}
+}
+
 func TestSetupScriptsOmitUnspecifiedPorts(t *testing.T) {
 	flow, err := NewFlow("udp", "192.0.2.10", 0, "198.51.100.53", 0, "wan0")
 	if err != nil {

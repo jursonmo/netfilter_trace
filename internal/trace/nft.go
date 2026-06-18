@@ -53,6 +53,8 @@ func (nftBackend) Run(ctx context.Context, exec Executor, cfg RunConfig, runID s
 	}
 
 	tracked := map[string]bool{}
+	var drain terminalDrain
+	defer drain.Stop()
 	for {
 		select {
 		case line, ok := <-lines:
@@ -73,16 +75,19 @@ func (nftBackend) Run(ctx context.Context, exec Executor, cfg RunConfig, runID s
 			if !tracked[ev.TraceID] {
 				continue
 			}
+			annotateRuleOrigin(&ev, runID)
 			result.Events = append(result.Events, ev)
 			applyEventOutcome(&result, ev)
 			if isTerminal(result.Outcome) {
-				finishResult(&result)
-				return result, nil
+				drain.Arm()
 			}
 			if reachedMaxEvents(&result, cfg) {
 				finishResult(&result)
 				return result, nil
 			}
+		case <-drain.C:
+			finishResult(&result)
+			return result, nil
 		case <-traceCtx.Done():
 			finishResult(&result)
 			if len(result.Events) > 0 && result.Outcome == OutcomeTimeout {
@@ -164,6 +169,11 @@ func applyEventOutcome(result *Result, ev Event) {
 	case "reject":
 		result.Outcome = OutcomeReject
 		return
+	case "accept":
+		if ev.Backend == string(BackendIPTables) && strings.EqualFold(ev.RuleRef.Chain, "INPUT") {
+			result.Outcome = OutcomeLocal
+			return
+		}
 	}
 	switch ev.FinalHint {
 	case "input":

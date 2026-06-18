@@ -46,7 +46,7 @@ func WriteHuman(w io.Writer, result Result) error {
 		return nil
 	}
 	fmt.Fprintln(w, "\nEvents:")
-	fmt.Fprintf(w, "%-4s %-9s %-12s %-18s %-9s %-10s %-10s %s\n", "#", "kind", "table", "chain", "verdict", "in", "out", "rule/raw")
+	fmt.Fprintf(w, "%-4s %-9s %-10s %-12s %-18s %-9s %-10s %-10s %s\n", "#", "kind", "origin", "table", "chain", "verdict", "in", "out", "rule/raw")
 	for i, ev := range result.Events {
 		rule := ev.RuleRef.Rule
 		if rule == "" {
@@ -63,8 +63,8 @@ func WriteHuman(w io.Writer, result Result) error {
 		} else if ev.RuleRef.Handle != "" {
 			chain = fmt.Sprintf("%s#%s", chain, ev.RuleRef.Handle)
 		}
-		fmt.Fprintf(w, "%-4d %-9s %-12s %-18s %-9s %-10s %-10s %s\n",
-			i+1, value(ev.Kind), value(table), value(chain), value(ev.Verdict), value(ev.InIface), value(ev.OutIface), rule)
+		fmt.Fprintf(w, "%-4d %-9s %-10s %-12s %-18s %-9s %-10s %-10s %s\n",
+			i+1, value(ev.Kind), value(ev.RuleRef.Origin), value(table), value(chain), value(ev.Verdict), value(ev.InIface), value(ev.OutIface), rule)
 	}
 	return nil
 }
