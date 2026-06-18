@@ -1,0 +1,4 @@
+interface:
+  display_name: "nftracepath Remote Verify"
+  short_description: "Deploy and verify nftracepath on remote Linux"
+  default_prompt: "Use $nftracepath-remote-verify to deploy nftracepath to a remote Linux device, run remote verification, and summarize failures before proposing fixes."
