@@ -34,7 +34,7 @@ log     = nftracepath 自己加的探针日志
 
 
 
-### 使用 $nftracepath-remote-verify 验证当前修改，远程机器是 root@192.168.4.24，端口 51000
+### 这个项目有自动部署和测试的SKILL，比如：使用 $nftracepath-remote-verify 验证当前修改，远程机器是 root@192.168.4.24，端口 51000
 
 ### namespace 集成测试 和 host smoke 测试 分别是什么意思，测试的逻辑是什么
 #### namespace 集成测试
